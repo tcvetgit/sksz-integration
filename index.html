@@ -18,9 +18,13 @@
 <body>
 <div id="app"></div>
 <noscript>Для работы приложения включите JavaScript.</noscript>
-<script>/*BOOT*/(function(){var V='e5fbg7b';try{if(location.protocol.indexOf('http')!==0)return;if(localStorage.getItem('szvers.build')===V)return;localStorage.setItem('szvers.build',V);var p=[];if(navigator.serviceWorker)p.push(navigator.serviceWorker.getRegistrations().then(function(r){return Promise.all(r.map(function(x){return x.unregister()}))}));if(window.caches)p.push(caches.keys().then(function(k){return Promise.all(k.map(function(x){return caches.delete(x)}))}));Promise.all(p).then(function(){location.reload()},function(){})}catch(e){}})();</script>
+<script>/*BOOT*/(function(){var V='e5fbg7i';try{if(location.protocol.indexOf('http')!==0)return;if(localStorage.getItem('szvers.build')===V)return;localStorage.setItem('szvers.build',V);var p=[];if(navigator.serviceWorker)p.push(navigator.serviceWorker.getRegistrations().then(function(r){return Promise.all(r.map(function(x){return x.unregister()}))}));if(window.caches)p.push(caches.keys().then(function(k){return Promise.all(k.map(function(x){return caches.delete(x)}))}));Promise.all(p).then(function(){location.reload()},function(){})}catch(e){}})();</script>
 <script src="data.js"></script>
 <script src="questions.js"></script>
+<script src="inst-data.js"></script>
+<script src="lang-en.js"></script>
+<script src="lang-kk.js"></script>
+<script src="lang-ky.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
