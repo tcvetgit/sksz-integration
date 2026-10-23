@@ -1,5 +1,5 @@
 /* Service worker: офлайн-кэш всего приложения */
-const CACHE='szvers-v33';
+const CACHE='szvers-v59';
 const ASSETS=[
 "./",
 "./app.js",
@@ -14,6 +14,28 @@ const ASSETS=[
 "./icons/icon-192.png",
 "./icons/icon-512.png",
 "./icons/icon-maskable-512.png",
+"./img/tab-1.png",
+"./img/tab-2.png",
+"./img/tab-3.png",
+"./img/tab-4.png",
+"./img/tab-5.png",
+"./img/ch1.png",
+"./img/ch2.png",
+"./img/ch3.png",
+"./img/ch4.png",
+"./img/ch5.png",
+"./img/ch6.png",
+"./img/ch7.png",
+"./img/ch8.png",
+"./img/inst1.png",
+"./img/inst2.png",
+"./img/inst3.png",
+"./img/inst4.png",
+"./img/inst5.png",
+"./img/flag-en.png",
+"./img/flag-kk.png",
+"./img/flag-ky.png",
+"./img/flag-ru.png",,
 "./img/goodt-end.png",
 "./img/goodt-login.png",
 "./img/goodt-logo.jpg",
@@ -34,6 +56,24 @@ const ASSETS=[
 "./img/ukritie.jpg",
 "./img/vhod.jpg",
 "./img/vhod2.jpg",
+"./img/inst/adapto_08.jpg",
+"./img/inst/adapto_09.jpg",
+"./img/inst/adapto_11.jpg",
+"./img/inst/adapto_14.jpg",
+"./img/inst/adapto_15.jpg",
+"./img/inst/adapto_17.jpg",
+"./img/inst/adapto_18.jpg",
+"./img/inst/adapto_20.jpg",
+"./img/inst/adapto_21.jpg",
+"./img/inst/adapto_22.jpg",
+"./img/inst/adapto_23.jpg",
+"./img/inst/adapto_24.jpg",
+"./img/inst/adapto_25.jpg",
+"./img/inst/adapto_28.jpg",
+"./img/inst/adapto_29.jpg",
+"./img/inst/adapto_30.jpg",
+"./img/inst/adapto_31.jpg",
+"./img/inst/adapto_32.jpg",
 "./img/inst/bbxd_04.jpg",
 "./img/inst/bbxd_05.jpg",
 "./img/inst/bbxd_07.jpg",
@@ -107,7 +147,7 @@ self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET')return;
   const u=new URL(e.request.url); if(u.origin!==location.origin)return;
   // config.js и страница — сначала сеть (чтобы быстро подхватить новый адрес таблицы), при офлайне — кэш
-  if(/\/(config\.js|index\.html)?$/.test(u.pathname)){
+  if(/\/(config\.js|index\.html)$/.test(u.pathname)){
     e.respondWith(fetch(e.request).then(resp=>{if(resp&&resp.ok){const cp=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cp));}return resp;})
       .catch(()=>caches.match(e.request,{ignoreSearch:true}).then(r=>r||caches.match('./index.html'))));
     return;
