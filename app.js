@@ -120,6 +120,7 @@
     openMist: 'Открыть главу с ошибкой',
     resumeQuiz: 'Продолжить тест ({n} из {m})', streak: 'Серия верных ответов', offline: '📴 Нет сети — приложение работает офлайн',
     fixMistakes: 'Повторить {n} ошиб.', goExam: 'Сдать экзамен', refBadge: 'Справочник',
+    pulseTitle: 'Аутсорс - Пульс', pulseSub: 'Предложения по улучшению работы склада', pulseBadge: 'Опрос',
     themeTitle: 'Тема', themeDark: '🌙 Включить тёмную тему', themeLight: '☀️ Включить светлую тему',
     backToWrong: '← К разбору ошибок', histEmpty: 'Пройди первый тест — результаты появятся здесь 📊',
     mixTitle: 'Смешанный тест', mixSub: '8 случайных вопросов',
@@ -128,10 +129,11 @@
   };
 
   // ---------- storage
-  const S = initS();
+  let S = initS();
   function initS() { let s; try { s = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { s = {}; } s.read = s.read || {}; s.best = s.best || {}; s.wrong = s.wrong || {}; s.hist = s.hist || []; return s; }
+  const genDev = () => 'D-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } };
-  if (!S.dev) { S.dev = 'D-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase(); save(); }
+  if (!S.dev) { S.dev = genDev(); save(); }
   // тема: применять сразу при старте (до первого рендера), чтобы не мигало
   document.documentElement.classList.toggle('dark', S.theme === 'dark');
   function setTheme(t) { S.theme = t; save(); document.documentElement.classList.toggle('dark', t === 'dark'); const mt = document.querySelector('meta[name=theme-color]'); if (mt) mt.content = t === 'dark' ? '#1d2223' : '#2f3738'; }
@@ -190,7 +192,7 @@
     const back = opts.back ? `<button class="back" aria-label="Назад" data-go="${opts.back}">‹</button>` : '<button class="back ghost" aria-hidden="true" tabindex="-1">‹</button>';
     const badge = opts.badge ? `<span class="badge">${opts.badge}</span>` : '';
     const tabs = [['learn', 'img/tab-1.png', T('tabs_learn')], ['test', 'img/tab-2.png', T('tabs_test')], ['inst', 'img/tab-3.png', T('tabs_inst')], ['cheat', 'img/tab-4.png', T('tabs_cheat')], ['more', 'img/tab-5.png', T('tabs_more')]];
-    const tabEls = tabs.map(([k, i, t]) => `<a href="#/${k}" class="${tab === k ? 'on' : ''}"><span class="ic"><img src="${i}" alt="" loading="lazy"></span>${t}</a>`).join('');
+    const tabEls = tabs.map(([k, i, t]) => `<a href="#/${k}" class="${tab === k ? 'on' : ''}"><span class="ic"><img src="${i}" alt="" loading="lazy"></span><span class="tlabel">${t}</span></a>`).join('');
     app.innerHTML = `<div class="offline-bar" id="offlineBar" hidden>${T('offline')}</div><header class="topbar">${back}<h1>${title}</h1>${badge}</header><main class="${sameScreen ? '' : 'anim'}">${body}</main><nav class="tabbar"><div class="in">${tabEls}<div class="pill"></div></div></nav>`;
     updateOfflineBar();
     requestAnimationFrame(() => movePill(true));
@@ -212,7 +214,9 @@
 <div class="large-title"><h2>${T('largeTitle')}</h2><p>СК «Северная Звезда» · Лемана ПРО</p></div>
 <div class="hero"><small>${T('heroSmall')}</small><h2>${T('heroTitle')}</h2>
 <div class="pbar"><i style="width:${pct}%"></i></div><div class="row"><span>${T('studied', { n, m: CH.length })}</span><span>${pct}%</span></div></div>
-<div class="sec-t">${T('chapters')}</div><div class="list">${items}</div>`, { tab: 'learn' });
+<div class="sec-t">${T('chapters')}</div><div class="list">${items}</div>
+<div class="divider" aria-hidden="true"><b></b><b></b><b></b></div>
+<a class="item" href="#/pulse"><div class="ic">${iconHtml('img/ch9.png')}</div><div class="tt"><b>${T('pulseTitle')}</b><span>${T('pulseSub')}</span></div><span class="ref-badge">${T('pulseBadge')}</span></a>`, { tab: 'learn' });
   }
 
   function viewChapter(id) {
@@ -374,9 +378,10 @@ ${mist.length ? `<div class="sec-t">${T('mistakes', { n: mist.length })}</div>${
       const pack = loadPack(lang);
       if (pack && pack.cheat) {
         const rowsHtml = b => b.rows.map(([k, v]) => `<div class="kv"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
-        const icons = { tech: '🚜', inloker: '🗄️', goodt: '⏱️', facts: '🔢', slang: '🗣️', terms: '📖' };
-        blocks = ['tech', 'inloker', 'goodt', 'facts', 'slang', 'terms'].map(k => {
+        const icons = { tech: '🚜', inloker: '🗄️', goodt: '⏱️', sborca: '📦', slang: '🗣️' };
+        blocks = ['tech', 'inloker', 'goodt', 'sborca', 'slang'].map(k => {
           const b = pack.cheat[k];
+          if (!b) return '';
           return `<details class="cblock" open><summary><span class="ci">${icons[k]}</span>${b.t}<span class="ch"></span></summary><div class="cheat cb-in">${rowsHtml(b)}${b.note ? `<p class="small muted">${b.note}</p>` : ''}</div></details>`;
         });
         const em = pack.cheat.emergency;
@@ -390,10 +395,9 @@ ${mist.length ? `<div class="sec-t">${T('mistakes', { n: mist.length })}</div>${
         blk('🚜', 'Техника — 3 категории', `${kv('Без допуска', 'Рохля — после инструктажа бригадира. Осмотри колёса, не перегружай (до 1000–2500 кг), опусти вилы перед толканием, не катайся.')}${kv('До 4 кВт', 'Мулинет, поводковый штабелёр (до 2 м) — допуск + протокол проверки знаний + инструктаж. Не возити людей; закончив — опусти вилы, вытащи ключ.')}${kv('Свыше 4 кВт', 'Ричтрак (до 8–12 м), погрузчик — удостоверение тракториста-машиниста + допуск. Без удостоверения не садись даже «просто попробовать».')}${kv('Нестандарт', 'Звук, дым, вибрация — немедленно останови работу и сообщи бригадиру.')}`),
         blk('🗄️', 'Инлокер — кратко', `${kv('Взять', 'Бейдж к считывателю (или PIN) → шкаф назначает ТСД, ячейка открывается → достань → закрой ячейку → проверь: экран, сканер, корпус.')}${kv('Сдать', 'Бейдж → QR/ШК на ТСД → «Исправен»/«Неисправен» (тип поломки) → подтвердить → первая свободная ячейка → закрыть.')}${kv('Перерыв', 'ТСД можно оставить в Инлокере — опция «Временное хранение».')}<div class="kv"><div class="k">Проблема</div><div class="v">Забыл/не открывается/не считается — бейдж ещё раз или бригадир через панель администратора.</div></div>`),
         blk('⏱️', 'Goodt Time (LKK) — кратко', `${kv('Сервер', '<code class="copy" data-copy="https://time.lemanapro.ru/api/v1">https://time.lemanapro.ru/api/v1</code> → «Сохранить» → логин/пароль → «Войти»')}${kv('Приход', '«Начать» → сканирование QR-кода → подтверждение')}${kv('Перерыв', '«Начать перерыв» → «Да» → QR-код → ждать сообщения → «Завершить перерыв» → QR-код → ждать сообщения')}${kv('Уход', '«Завершить смену» → QR-код → подтверждение')}<p class="small muted">QR-код — у входа в зону работы. Нет отметки прихода — смена не зафиксирована; нет отметки ухода — неявка; одна отметка перерыва — ошибки в учёте. Проблемы — сразу к руководителю.</p>`),
-        blk('🔢', 'Ключевые цифры и факты', `${kv('Запомнить', '🚫 Не нажимай «Запомнить меня» — ТСД каждую смену новый.')}${kv('ТСД', 'Показывает задания, ведёт по складу, сканирует ШК, подтверждает действия, печатает этикетки.')}${kv('АБК', 'Столовая · раздевалка · комната отдыха · ценные вещи · LKK · медкабинет · брифинг · эвакуация · ОКО · Инлокер.')}${kv('Одежда', 'Спецодежда без повреждений, по размеру, застёгнута; защитная обувь по сезону; светоотражающий жилет; безопасный нож; перчатки.')}`),
+        blk('📦', 'Сборка — типы тары', `${kv('Составной товар', 'бывает разных типов; уточни у бригадира, какой где используется.')}${kv('Карнизы / рулонные шторы', 'меньше 5 шт. в заказе — делится через бригадира на BOX (собирается физически и привозится к бригадиру); больше 5 шт. — остаётся на паллете ST2 (PAL80×240).')}${kv('BOX', 'вмещает до 25 кг включительно, больше не грузи! Радиаторы, освещение (хрупкий товар) и зеркала в BOX не идут. Исключения — уточни у бригадира.')}${kv('STE (PAL80×60)', 'максимальная высота сборки 1,2 м, максимальный вес 70 кг. Исключение — составной товар.')}${kv('STD (PAL80×120)', 'максимальная высота сборки 1,8 м, вес не ограничен.')}${kv('ST2 (PAL80×240)', 'максимальная высота сборки 1,5 м, вес не ограничен. Для карнизов и рулонных штор.')}${kv('DIV (PAL120×170)', 'максимальная высота сборки 1,5 м, вес не ограничен. Для негабаритных товаров.')}${kv('BIG (PAL120×240)', 'максимальная высота сборки 1,5 м, вес не ограничен. Тип для дверей (виртуальная тара): физически используется паллет DIV (PAL120×170), максимум 8 больших или 16 маленьких/узких дверей.')}${kv('UKP (PAL120×120)', 'используется как исключение — уточни у бригадира.')}<p class="small muted">Будь внимателен — не повреди продажную упаковку: она часто отличается от транспортировочных коробов видом и цветом (презентабельный вид). Пуш-ячейка — ячейка из 2–3 ячеек с одним и тем же товаром; отбирай с начатой паллеты, с одной, а не с нескольких.</p>`),
         `<div class="cheat" style="border-left:4px solid var(--red)"><h3>🚨 ЧС — порядок действий</h3>${['Немедленно прекрати работу.', 'Убедись в безопасности себя и окружающих.', 'Оповести руководителя.', 'Вызови помощь по внутреннему каналу связи или телефону.', 'При необходимости эвакуируйся согласно плану эвакуации.'].map((t, i) => `<div class="kv with-num"><span class="pillnum">${i + 1}</span><div class="v">${t}</div></div>`).join('')}<a class="btn sec" href="#/ch/emergency">Глава про ЧС</a></div>`,
-        blk('🗣️', 'Народные названия отделов и процессов', `${kv('ХД / XD / КРОСС', 'Отдел КРОСС-ДОК')}${kv('Ручка / Раздел / ЕЗ / ББХД', 'НЕ автоматизированная часть отдела ЕДИНЫЙ ЗАКАЗ')}${kv('Станция / Адапто / Пал / Депал', 'АВТОМАТИЗИРОВАННАЯ часть отдела ЕДИНЫЙ ЗАКАЗ — ADAPTO')}${kv('СТОК / Сборка / Пикинг', 'Отдел ИМПОРТ')}${kv('Отгрузка / Накатка / Раунды / Загрузка', 'Отдел ОТГРУЗКА')}`),
-        blk('📖', 'Прочие расшифровки', `${kv('СиСиха / Сишка', 'Наклейка, несущая основной штрихкод паллеты')}${kv('Пистолет / Тэха', 'Терминал сбора данных (ТСД), основной рабочий инструмент сборщика')}${kv('Циклоп', 'Автоматическая машина оплачивания паллет')}${kv('МД', 'Мастер-данные товара: вес, размер, вложимость и т. п.')}${kv('Сброс', 'Принудительный системный сброс задания')}${kv('ПЦБ / PCB', 'Метод отбора товара — упаковка')}${kv('СПЦБ / SPCB', 'Метод отбора товара — подупаковка')}${kv('Inner / Unit (Штука)', 'Метод отбора товара — штучный (короб)')}${kv('ОПВС', 'Отдел предотвращения внештатных ситуаций (служба безопасности склада)')}`)
+        blk('🗣️', 'Народные названия и прочие расшифровки', `${kv('ХД / XD / КРОСС', 'Отдел КРОСС-ДОК')}${kv('Ручка / Раздел / ЕЗ / ББХД', 'НЕ автоматизированная часть отдела ЕДИНЫЙ ЗАКАЗ')}${kv('Станция / Адапто / Пал / Депал', 'АВТОМАТИЗИРОВАННАЯ часть отдела ЕДИНЫЙ ЗАКАЗ — ADAPTO')}${kv('СТОК / Сборка / Пикинг', 'Отдел ИМПОРТ')}${kv('Отгрузка / Накатка / Раунды / Загрузка', 'Отдел ОТГРУЗКА')}${kv('СиСиха / Сишка', 'Наклейка, несущая основной штрихкод паллеты')}${kv('Пистолет / Тэха', 'Терминал сбора данных (ТСД), основной рабочий инструмент сборщика')}${kv('Циклоп', 'Автоматическая машина оплачивания паллет')}${kv('МД', 'Мастер-данные товара: вес, размер, вложимость и т. п.')}${kv('Сброс', 'Принудительный системный сброс задания')}${kv('ПЦБ / PCB', 'Метод отбора товара — упаковка')}${kv('СПЦБ / SPCB', 'Метод отбора товара — подупаковка')}${kv('Inner / Unit (Штука)', 'Метод отбора товара — штучный (короб)')}${kv('ОПВС', 'Отдел предотвращения внештатных ситуаций (служба безопасности склада)')}`)
       ];
     }
     shell(T('cheatTitle'), `<div class="cheat-search"><input id="cheatQ" type="search" placeholder="${T('searchPh')}" autocomplete="off">${(window.SpeechRecognition || window.webkitSpeechRecognition) ? '<button class="cs-mic" id="cheatMic" aria-label="🎤">🎤</button>' : ''}<button class="cs-x" id="cheatX" aria-label="✕" hidden>✕</button></div><div id="cheatBlocks">${blocks.join('\n')}</div>`, { tab: 'cheat' });
@@ -471,6 +475,22 @@ ${sparkline()}
 <div class="chap-nav"><a class="btn sec" href="#/inst">${T('allInst')}</a></div>`, { tab: 'inst', back: '#/inst' });
   }
 
+  // ---------- Аутсорс - Пульс
+  function tPulse() {
+    const lang = S.lang || 'ru';
+    if (lang !== 'ru') {
+      const pack = loadPack(lang);
+      if (pack && pack.pulseHtml) return pack.pulseHtml;
+      if (pack && pack.ui && pack.ui.pulseHtml) return pack.ui.pulseHtml;
+    }
+    return D.pulseHtml;
+  }
+  function viewPulse() {
+    shell(T('pulseTitle'), `
+<div class="large-title"><h2>${T('pulseTitle')}</h2><p>${T('pulseSub')}</p></div>
+<article class="content">${tPulse()}</article>`, { tab: 'learn', back: '#/learn' });
+  }
+
   // ---------- routing
   function go(h) { if (location.hash === h) route(); else location.hash = h; }
   function route() {
@@ -481,6 +501,7 @@ ${sparkline()}
     else if (p === 'quiz') viewQuiz();
     else if (p === 'inst') viewInst();
     else if (p === 'doc') viewDoc(a);
+    else if (p === 'pulse') viewPulse();
     else if (p === 'lang') viewLang();
     else if (p === 'cheat') viewCheat();
     else if (p === 'more') viewMore();
@@ -514,8 +535,21 @@ ${sparkline()}
     else if (act === 'theme') setTheme(S.theme === 'dark' ? 'light' : 'dark');
     else if (act === 'mistgo') { S.from = id; save(); }
     else if (act === 'backwr') { S.from = null; save(); }
-    else if (act === 'theme') setTheme(S.theme === 'dark' ? 'light' : 'dark');
-    else if (act === 'reset') { if (confirm(T('confirmReset'))) { S = { read: {}, dev: S.dev, lang: S.lang }; save(); viewMore(); toast(T('resetDone')); } }
+    else if (act === 'lang') setLang(b.dataset.lang);
+    else if (act === 'reset') {
+      if (confirm(T('confirmReset'))) {
+        quiz = null;
+        try { localStorage.removeItem(KEY); } catch (e) { }
+        S = initS();
+        if (!S.dev) S.dev = genDev();
+        save();
+        // тема возвращается к светлой по умолчанию
+        document.documentElement.classList.remove('dark');
+        const mt = document.querySelector('meta[name=theme-color]'); if (mt) mt.content = '#2f3738';
+        viewMore();
+        toast(T('resetDone'));
+      }
+    }
   });
 
   function lightbox(src, alt) {

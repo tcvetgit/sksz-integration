@@ -49,7 +49,8 @@ body{overscroll-behavior-y:none}
 /* ---------- Floating tab bar (pill) ---------- */
 .tabbar{position:fixed;bottom:calc(var(--safe-b) + 12px);left:0;right:0;z-index:50;display:flex;justify-content:center;padding:0;pointer-events:none}
 .tabbar .in{display:flex;width:min(92%,420px);max-width:420px;background:rgba(47,55,56,.58);-webkit-backdrop-filter:blur(22px) saturate(1.5);backdrop-filter:blur(22px) saturate(1.5);border-radius:28px;box-shadow:0 4px 18px rgba(47,55,56,.14),0 1px 3px rgba(47,55,56,.08);border:1px solid rgba(255,255,255,.22);padding:6px;position:relative;pointer-events:auto}
-.tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:54px;color:rgba(255,255,255,.85);text-decoration:none;font-size:11px;font-weight:700;gap:2px;position:relative;z-index:2;border-radius:22px;transition:color .25s}
+.tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:54px;color:rgba(255,255,255,.85);text-decoration:none;font-size:clamp(9.3px,2.72vw,11px);font-weight:700;gap:2px;position:relative;z-index:2;border-radius:22px;transition:color .25s;padding:0 2px;min-width:0}
+.tabbar a .tlabel{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.1}
 .tabbar a .ic{width:26px;height:26px;display:block;transition:transform .3s var(--ease-spring)}
 .tabbar a .ic img{width:100%;height:100%;object-fit:contain;display:block;filter:grayscale(1) brightness(.75) opacity(.75);transition:filter .25s}
 .tabbar a.on .ic img{filter:none}
@@ -88,6 +89,10 @@ html.dark .item .ic{background:linear-gradient(145deg,rgba(255,255,255,.13),rgba
 .done svg path{stroke-dasharray:24;stroke-dashoffset:0;animation:draw .4s var(--ease-out) both}
 @keyframes draw{from{stroke-dashoffset:24}to{stroke-dashoffset:0}}
 .todo{width:28px;height:28px;border-radius:50%;border:2px solid var(--bd);flex-shrink:0;transition:border-color .3s,background .3s}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 6px 18px}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--bd);border-radius:1px}
+.divider b{width:5px;height:5px;border-radius:50%;background:var(--mu);opacity:.4;flex-shrink:0}
+.divider b:nth-of-type(2){opacity:.65}
 .sec-t{font-size:13px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin:22px 6px 10px}
 
 /* ---------- Контент главы ---------- */
@@ -131,6 +136,9 @@ html.dark .item .ic{background:linear-gradient(145deg,rgba(255,255,255,.13),rgba
 .qr-card a:after{content:"";display:block;height:2px;width:0;background:var(--accent);border-radius:2px;transition:width .25s var(--ease-out)}
 .qr-card a:hover:after{width:100%}
 .qr-card small{font-size:11px;color:var(--mu);word-break:break-all}
+.qr-card.qr-big{gap:16px;padding:14px}
+.qr-card.qr-big img{width:160px;height:160px;padding:8px}
+.qr-card.qr-big div{justify-content:center}
 .faq details{border:1px solid var(--bd);border-radius:14px;margin:10px 0;background:var(--bg);overflow:hidden;transition:background .2s}
 .faq details[open]{background:var(--card)}
 .faq summary{padding:13px 40px 13px 16px;font-weight:600;cursor:pointer;list-style:none;position:relative;min-height:50px;transition:color .2s}
