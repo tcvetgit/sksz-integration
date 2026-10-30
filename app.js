@@ -136,10 +136,17 @@
 
   // ---------- storage
   let S = initS();
-  function initS() { let s; try { s = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { s = {}; } s.read = s.read || {}; s.best = s.best || {}; s.wrong = s.wrong || {}; s.hist = s.hist || []; s.pending = s.pending || []; return s; }
+  // ID устройства живёт в отдельном ключе localStorage и переживает «Сбросить прогресс»
+  const DEV_KEY = 'szvers.dev.v1';
   const genDev = () => 'D-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  const getDev = fallback => {
+    let d = null;
+    try { d = localStorage.getItem(DEV_KEY); } catch (e) { }
+    if (!d) { d = fallback || genDev(); try { localStorage.setItem(DEV_KEY, d); } catch (e) { } }
+    return d;
+  };
+  function initS() { let s; try { s = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { s = {}; } s.read = s.read || {}; s.best = s.best || {}; s.wrong = s.wrong || {}; s.hist = s.hist || []; s.pending = s.pending || []; s.dev = getDev(s.dev); return s; }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } };
-  if (!S.dev) { S.dev = genDev(); save(); }
   // тема: применять сразу при старте (до первого рендера), чтобы не мигало
   document.documentElement.classList.toggle('dark', S.theme === 'dark');
   function setTheme(t) { S.theme = t; save(); document.documentElement.classList.toggle('dark', t === 'dark'); const mt = document.querySelector('meta[name=theme-color]'); if (mt) mt.content = t === 'dark' ? '#1d2223' : '#2f3738'; }
@@ -656,8 +663,7 @@ ${sparkline()}
       if (confirm(T('confirmReset'))) {
         quiz = null;
         try { localStorage.removeItem(KEY); } catch (e) { }
-        S = initS();
-        if (!S.dev) S.dev = genDev();
+        S = initS(); // initS восстановит ID устройства из отдельного ключа — он переживает сброс
         save();
         // тема возвращается к светлой по умолчанию
         document.documentElement.classList.remove('dark');
