@@ -135,8 +135,8 @@
   };
 
   // ---------- storage
-  let S = initS();
-  // ID устройства живёт в отдельном ключе localStorage и переживает «Сбросить прогресс»
+  // ID устройства живёт в отдельном ключе localStorage и переживает «Сбросить прогресс».
+  // Объявления должны идти ВЫШЕ let S = initS(): initS вызывает getDev.
   const DEV_KEY = 'szvers.dev.v1';
   const genDev = () => 'D-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
   const getDev = fallback => {
@@ -146,6 +146,7 @@
     return d;
   };
   function initS() { let s; try { s = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { s = {}; } s.read = s.read || {}; s.best = s.best || {}; s.wrong = s.wrong || {}; s.hist = s.hist || []; s.pending = s.pending || []; s.dev = getDev(s.dev); return s; }
+  let S = initS();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } };
   // тема: применять сразу при старте (до первого рендера), чтобы не мигало
   document.documentElement.classList.toggle('dark', S.theme === 'dark');
