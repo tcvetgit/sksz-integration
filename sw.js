@@ -1,5 +1,5 @@
 /* Service worker: офлайн-кэш всего приложения */
-const CACHE='szvers-v80';
+const CACHE='szvers-v86';
 const ASSETS=[
 "./",
 "./app.js",

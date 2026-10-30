@@ -7,6 +7,9 @@
   const PASS = 80, EXAM_N = Q.length; // допуск: 1 ошибка на 5 вопросов = 80%
   let EXAM_LEN = null;
   const KEY = 'szvers.v2';
+  // Google Таблица: URL веб-приложения Apps Script (Расширения → Apps Script → Развернуть).
+  // Пока пусто — результаты копятся в офлайн-очередь и уйдут после вставки URL.
+  const SHEET_URL = 'https://script.google.com/macros/s/AKfycbwUj_B4EN5EQkYmeR7Vpj15_AED7anrwty7easFBwXnZuYViqKAAMM8M4bFAQf1OqVW/exec';
   const $ = (s, el = document) => el.querySelector(s);
   const esc = s => String(s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
   // сериализуемый слепок активного квиза — для «продолжить после закрытия»
@@ -117,9 +120,12 @@
     zoomHint: 'Нажми на изображение — увеличить/уменьшить',
     noMistakesToast: 'Ошибок нет — отлично! 🎉',
     searchPh: '🔍 Поиск по шпаргалке…',
+    instSearchPh: '🔍 Поиск по инструкциям…',
+    instNoRes: 'Ничего не найдено 🔍',
     openMist: 'Открыть главу с ошибкой',
     resumeQuiz: 'Продолжить тест ({n} из {m})', streak: 'Серия верных ответов', offline: '📴 Нет сети — приложение работает офлайн',
     fixMistakes: 'Повторить {n} ошиб.', goExam: 'Сдать экзамен', refBadge: 'Справочник',
+    fioTitle: 'ФИО перед экзаменом', fioHint: 'Введи фамилию, имя и отчество — результат экзамена будет записан в ведомость. В следующий раз подставится автоматически.', fioPh: 'Иванов Иван Иванович', fioBtn: 'Продолжить →', fioShort: 'Введи ФИО полностью (минимум 3 символа)', fioEdit: 'ФИО:', fioChange: 'изменить',
     pulseTitle: 'Аутсорс - Пульс', pulseSub: 'Предложения по улучшению работы склада', pulseBadge: 'Опрос',
     themeTitle: 'Тема', themeDark: '🌙 Включить тёмную тему', themeLight: '☀️ Включить светлую тему',
     backToWrong: '← К разбору ошибок', histEmpty: 'Пройди первый тест — результаты появятся здесь 📊',
@@ -130,7 +136,7 @@
 
   // ---------- storage
   let S = initS();
-  function initS() { let s; try { s = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { s = {}; } s.read = s.read || {}; s.best = s.best || {}; s.wrong = s.wrong || {}; s.hist = s.hist || []; return s; }
+  function initS() { let s; try { s = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { s = {}; } s.read = s.read || {}; s.best = s.best || {}; s.wrong = s.wrong || {}; s.hist = s.hist || []; s.pending = s.pending || []; return s; }
   const genDev = () => 'D-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } };
   if (!S.dev) { S.dev = genDev(); save(); }
@@ -139,6 +145,34 @@
   function setTheme(t) { S.theme = t; save(); document.documentElement.classList.toggle('dark', t === 'dark'); const mt = document.querySelector('meta[name=theme-color]'); if (mt) mt.content = t === 'dark' ? '#1d2223' : '#2f3738'; }
 
   const toast = t => { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 1800); };
+
+  // ---------- Отправка результатов в Google Таблицу (Apps Script)
+  // Формат строки «Попытки» (лист 1): [дата, ФИО, ID устройства, тип, глава, всего, верных, %, сдал, сек, ошибок, ID попытки]
+  // Формат строки «Ошибки» (лист 2):  [ID попытки, дата, ФИО, ID устройства, глава, вопрос, твой ответ, правильный ответ]
+  let sending = false;
+  function flushPending() {
+    if (sending || !S.pending || !S.pending.length || !/^https/.test(SHEET_URL)) return;
+    if (navigator.onLine === false) return;
+    sending = true;
+    const batch = S.pending.splice(0, 20);
+    fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(batch) })
+      .then(() => { save(); })
+      .catch(() => { S.pending = batch.concat(S.pending); save(); })
+      .finally(() => { sending = false; if (S.pending.length) flushPending(); });
+  }
+  window.addEventListener('online', flushPending);
+  function queueReport(rec, mistakes) {
+    const when = new Date(rec.ts).toLocaleString('ru-RU');
+    const fio = S.fio || '';
+    const attempt = [when, fio, rec.device, rec.type, rec.chapter || '', rec.total, rec.correct, rec.percent,
+      rec.passed == null ? '' : (rec.passed ? 'Сдал' : 'Не сдал'), rec.duration, mistakes.length, rec.rid];
+    const errors = mistakes.map(m => [rec.rid, when, fio, rec.device, rec.chapter || m.ch, m.q, m.a, m.ok]);
+    S.pending.push({ attempt, errors });
+    // держим очередь разумного размера (последние 200 записей)
+    if (S.pending.length > 200) S.pending = S.pending.slice(-200);
+    save();
+    flushPending();
+  }
 
   // ---------- ripple только на кнопках (на карточках вызывал глюки при скролле)
   document.addEventListener('pointerdown', e => {
@@ -266,15 +300,28 @@ ${S.from === id ? `<a class="btn sec" href="#/test" data-act="backwr">${T('backT
       return `<button class="item" data-act="quiz-ch" data-id="${c.id}"><div class="ic">${iconHtml(c.icon)}</div><div class="tt"><b>${tch(c.id).t}</b><span>${T('questionsOf', { a: Math.min(n, chQuota(n)), b: n })}</span><span class="mini-pbar"><i style="width:${read ? 100 : 0}%"></i></span></div><span class="st">${b != null ? (b >= PASS ? '✅ ' : '') + b + '%' : '—'}</span></button>`;
     }).join('');
     const last = S.hist.slice(-5).reverse().map(h => `<div class="kv with-num"><div class="k" style="min-width:52px">${h.p}%</div><div class="v">${esc(h.t)}<br><span class="muted small">${new Date(h.d).toLocaleString('ru-RU')}</span></div></div>`).join('');
+    const fioRow = S.fio ? `<p class="small fio-line">${T('fioEdit')} <b>${esc(S.fio)}</b> <a href="#" data-act="fioedit" class="fio-edit">${T('fioChange')}</a></p>` : '';
     shell(T('examPrep'), `
 ${S.qz ? `<button class="banner resume-banner" data-act="resume">▶ ${T('resumeQuiz', { n: (S.qz.ans || []).filter(Boolean).length, m: S.qz.qs.length })}</button>` : ''}
 <div class="examcard"><h2>🎓 ${T('exam')}</h2><p>${T('examDesc', { n1: '4–12', n2: EXAM_N, n3: EXAM_LEN || CH.reduce((s, c) => s + chQuota(Q.filter(q => q.c === c.id).length), 0) })}</p>
-<p>${T('best')} <b>${be != null ? be + '%' : T('never')}</b></p><button class="btn light" data-act="exam">${T('startExam')}</button></div>
+<p>${T('best')} <b>${be != null ? be + '%' : T('never')}</b></p>${fioRow}<button class="btn light" data-act="exam">${T('startExam')}</button></div>
 <div class="grid2" style="margin-top:12px">
 <button class="tile ${wrongN ? '' : 'tile-empty'}" data-act="wrong"><div class="n">${wrongN ? wrongN : '🎉'}</div><div class="d">${T('wrongTitle')}</div>${wrongN ? `<div class="d small">${wrongChips}</div>` : `<div class="d small">${T('noMistakes')}</div>`}</button>
 <button class="tile" data-act="quiz-mix"><div class="n">🎲</div><div class="d">${T('mixTitle')}</div><div class="d small">${T('mixSub')}</div></button></div>
 <div class="sec-t">${T('chTests')}</div><div class="list">${tiles}</div>
 <div class="sec-t">${T('lastAttempts')}</div>${last ? `<div class="cheat">${last}</div>` : `<div class="cheat empty-state">${T('histEmpty')}</div>`}`, { tab: 'test' });
+  }
+
+  // ---------- Экран ФИО перед экзаменом
+  function viewFio(mode, id) {
+    shell(T('fioTitle'), `
+<div class="large-title"><h2>${T('fioTitle')}</h2><p>${T('fioHint')}</p></div>
+<div class="fio-card"><input id="fioIn" type="text" placeholder="${T('fioPh')}" value="${S.fio ? esc(S.fio) : ''}" autocomplete="name" maxlength="120">
+<button class="btn" data-act="fiosave" data-mode="${mode || 'exam'}" data-id="${id || ''}">${T('fioBtn')}</button></div>`, { tab: 'test' });
+    const f = $('#fioIn');
+    if (f) {
+      f.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const b = $('a[data-act=fiosave],button[data-act=fiosave]'); if (b) b.click(); } });
+    }
   }
 
   function viewQuiz() {
@@ -357,6 +404,9 @@ ${S.qz ? `<button class="banner resume-banner" data-act="resume">▶ ${T('resume
       S.hist.push({ t: quiz.title, p, d: Date.now() }); S.hist = S.hist.slice(-30); delete S.qz; save();
       const dur = Math.round((Date.now() - quiz.t0) / 1000);
       quiz.rec = { rid: S.dev + '-' + Date.now().toString(36), ts: Date.now(), type: quiz.title, correct: r, total: n, percent: p, passed: quiz.mode === 'exam' ? (p >= PASS) : null, duration: dur, device: S.dev, app: 'szvers-2.0' };
+      const mistakes = quiz.qs.map((q, i) => ({ q, a: quiz.ans[i] })).filter(x => !x.a.ok).map(({ q, a }) => ({ ch: tch(q.c).t, q: q.q, a: a.pick, ok: q.ok }));
+      quiz.rec.chapter = quiz.mode === 'ch' ? tch(quiz.id).t : '';
+      queueReport(quiz.rec, mistakes);
       if (quiz.mode === 'exam' && p >= PASS) setTimeout(confetti, 350);
     }
     const pass = p >= PASS, col = pass ? 'var(--brand)' : 'var(--red)';
@@ -463,9 +513,73 @@ ${sparkline()}
   // ---------- Инструкции по отделам (без тестов)
   function viewInst() {
     const items = IN.insts.map(i => { const tr = tinst(i.id); return `<a class="item" href="#/doc/${i.id}"><div class="ic">${iconHtml(i.icon)}</div><div class="tt"><b>${tr.t}</b><span>${tr.s}</span></div><span class="ref-badge">${T('refBadge')}</span></a>`; }).join('');
+    const mic = (window.SpeechRecognition || window.webkitSpeechRecognition) ? '<button class="cs-mic" id="instMic" aria-label="🎤">🎤</button>' : '';
     shell(T('instTitle'), `
 <div class="large-title"><h2>${T('instTitle')}</h2><p>${T('instSub')}</p></div>
-<div class="list">${items}</div>`, { tab: 'inst' });
+<div class="cheat-search"><input id="instQ" type="search" placeholder="${T('instSearchPh')}" autocomplete="off">${mic}<button class="cs-x" id="instX" aria-label="✕" hidden>✕</button></div>
+<div class="list" id="instList">${items}</div>`, { tab: 'inst' });
+    const inp = $('#instQ');
+    if (inp) {
+      const listEl = $('#instList');
+      const x = $('#instX');
+      const micBtn = $('#instMic');
+      if (micBtn) {
+        micBtn.addEventListener('click', () => {
+          const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+          const rec = new SR();
+          rec.lang = { ru: 'ru-RU', kk: 'kk-KZ', ky: 'ky-KG', en: 'en-US' }[S.lang || 'ru'];
+          rec.interimResults = false;
+          micBtn.classList.add('listening');
+          rec.onresult = ev => { inp.value = ev.results[0][0].transcript; inp.dispatchEvent(new Event('input')); };
+          rec.onend = () => micBtn.classList.remove('listening');
+          rec.onerror = () => micBtn.classList.remove('listening');
+          try { rec.start(); } catch (e) { micBtn.classList.remove('listening'); }
+        });
+      }
+      const escS = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const rx = q => new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      const hl = (s, q) => q ? escS(s).replace(rx(q), m => '<mark>' + m + '</mark>') : escS(s);
+      const cache = [];
+      let cacheBuilt = false;
+      const buildCache = () => {
+        if (cacheBuilt) return;
+        const div = document.createElement('div');
+        IN.insts.forEach(i => {
+          const tr = tinst(i.id);
+          div.innerHTML = tHtmlInst(i.id) || '';
+          cache.push({ id: i.id, icon: i.icon, t: tr.t, s: tr.s, text: div.textContent });
+        });
+        cacheBuilt = true;
+      };
+      const snips = (text, q) => {
+        const out = [];
+        const t = text.toLowerCase();
+        let pos = 0;
+        while (out.length < 3) {
+          const idx = t.indexOf(q, pos);
+          if (idx < 0) break;
+          const start = Math.max(0, idx - 45);
+          const end = Math.min(text.length, idx + q.length + 45);
+          let s = (start > 0 ? '…' : '') + escS(text.slice(start, end)) + (end < text.length ? '…' : '');
+          s = s.replace(rx(q), m => '<mark>' + m + '</mark>');
+          out.push(s);
+          pos = end;
+        }
+        return out;
+      };
+      inp.addEventListener('input', () => {
+        const q = inp.value.trim().toLowerCase();
+        x.hidden = !q;
+        if (!q) { listEl.innerHTML = items; return; }
+        buildCache();
+        const res = cache.filter(c => (c.t + ' ' + c.s).toLowerCase().includes(q) || c.text.toLowerCase().includes(q));
+        listEl.innerHTML = res.length ? res.map(c => {
+          const sn = snips(c.text, q);
+          return `<a class="item inst-hit" href="#/doc/${c.id}"><div class="ic">${iconHtml(c.icon)}</div><div class="tt"><b>${hl(c.t, q)}</b><span>${hl(c.s, q)}</span>${sn.length ? `<div class="hit-snips">${sn.map(s => `<div class="hit-sn">${s}</div>`).join('')}</div>` : ''}</div></a>`;
+        }).join('') : `<div class="item inst-nores">${T('instNoRes')}</div>`;
+      });
+      x.addEventListener('click', () => { inp.value = ''; inp.dispatchEvent(new Event('input')); inp.focus(); });
+    }
   }
 
   function viewDoc(id) {
@@ -525,7 +639,9 @@ ${sparkline()}
     if (act === 'read') { S.read[id] = !S.read[id]; save(); if (S.read[id]) { toast(T('markedRead')); if (CH.every(c => S.read[c.id])) setTimeout(confetti, 350); } const sy = window.scrollY; viewChapter(id); window.scrollTo(0, sy); }
     else if (act === 'quiz-ch') startQuiz('ch', id);
     else if (act === 'quiz-mix') startQuiz('mix');
-    else if (act === 'exam') startQuiz('exam');
+    else if (act === 'exam') { if (S.fio) startQuiz('exam'); else viewFio('exam'); }
+    else if (act === 'fioedit') viewFio('exam');
+    else if (act === 'fiosave') { const f = $('#fioIn'); const v = f ? f.value.trim() : ''; if (v.length < 3) { toast(T('fioShort')); return; } S.fio = v; save(); startQuiz('exam'); }
     else if (act === 'wrong') startQuiz('wrong');
     else if (act === 'ans') answer(+b.dataset.k);
     else if (act === 'next') { quiz.i++; viewQuiz(); }
