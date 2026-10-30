@@ -680,17 +680,25 @@ ${sparkline()}
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; });
 
   if ('serviceWorker' in navigator && !window.SZVERS_SINGLE && location.protocol.startsWith('http')) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(reg => {
-      reg.addEventListener('updatefound', () => {
-        const nw = reg.installing; if (!nw) return;
-        nw.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            const bar = document.createElement('div'); bar.className = 'update-bar';
-            bar.innerHTML = `<span>🔄 ${T('updateReady')}</span><button>${T('updateBtn')}</button>`;
-            bar.querySelector('button').addEventListener('click', () => location.reload());
-            document.body.appendChild(bar);
-          }
-        });
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      // Автообновление: проверяем новую версию при каждом возврате в приложение (важно для PWA на телефоне).
+      let checking = false;
+      const check = () => {
+        if (checking || document.visibilityState !== 'visible' || navigator.onLine === false) return;
+        checking = true;
+        reg.update().catch(() => { }).finally(() => { checking = false; });
+      };
+      document.addEventListener('visibilitychange', check);
+      window.addEventListener('focus', check);
+      setInterval(check, 60 * 60 * 1000); // подстраховка раз в час
+      // Новый SW активировался (skipWaiting + claim уже в sw.js) — перезагружаем страницу один раз,
+      // чтобы версия сразу стала свежей. На самом первом старте (контроллера ещё не было) — не перезагружаем.
+      let hadController = !!navigator.serviceWorker.controller, reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController) { hadController = true; return; }
+        if (reloading) return;
+        reloading = true;
+        location.reload();
       });
     }).catch(() => { }));
   }

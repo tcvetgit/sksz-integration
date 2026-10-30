@@ -1,81 +1,90 @@
-/* Service worker: офлайн-кэш всего приложения */
-const CACHE='szvers-v86';
+/* Service worker: офлайн-кэш всего приложения.
+   Обновление: поменяй CACHE (v87 → v88 …) при новой сборке — браузер ставит нового SW,
+   на activate старые кэши удаляются. Ассеты качаются с cache:'reload', поэтому HTTP-кэш
+   телефона не мешает: в новый кэш всегда попадает свежая копия с сервера. */
+const CACHE='szvers-v87';
 const ASSETS=[
-"./",
-"./app.js",
-"./data.js",
-"./questions.js",
-"./inst-data.js",
-"./lang-en.js",
-"./lang-kk.js",
-"./lang-ky.js",
-"./icons/apple-touch-icon.png",
-"./icons/favicon-64.png",
-"./icons/icon-192.png",
-"./icons/icon-512.png",
-"./icons/icon-maskable-512.png",
-"./img/tab-1.png",
-"./img/tab-2.png",
-"./img/tab-3.png",
-"./img/tab-4.png",
-"./img/tab-5.png",
-"./img/ch1.png",
-"./img/ch2.png",
-"./img/ch3.png",
-"./img/ch4.png",
-"./img/ch5.png",
-"./img/ch6.png",
-"./img/ch7.png",
-"./img/ch8.png",
-"./img/ch9.png",
-"./img/inst1.png",
-"./img/inst2.png",
-"./img/inst3.png",
-"./img/inst4.png",
-"./img/inst5.png",
-"./img/inst6.png",
-"./img/flag-en.png",
-"./img/flag-kk.png",
-"./img/flag-ky.png",
-"./img/flag-ru.png",
-"./img/goodt-end.png",
-"./img/goodt-login.png",
-"./img/goodt-logo.jpg",
-"./img/goodt-start.png",
-"./img/goodt-store.jpg",
-"./img/qr-appstore.png",
-"./img/qr-googleplay.png",
-"./img/qr-materials.png",
-"./img/qr-pulse.png",
-"./img/prep-appearance.jpg",
-"./img/qr-server.png",
-"./img/shema.png",
-"./img/shkaf.jpg",
-"./img/t1.jpg",
-"./img/t2.jpg",
-"./img/t3.jpg",
-"./img/t4.jpg",
-"./img/t5.jpg",
-"./img/tsd.jpg",
-"./img/ukritie.jpg",
-"./img/vhod.jpg",
-"./img/vhod2.jpg",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-"./index.html",
-"./manifest.webmanifest",
-"./style.css"
+  "./",
+  "./app.js",
+  "./data.js",
+  "./questions.js",
+  "./inst-data.js",
+  "./lang-en.js",
+  "./lang-kk.js",
+  "./lang-ky.js",
+  "./icons/apple-touch-icon.png",
+  "./icons/favicon-64.png",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./icons/icon-maskable-512.png",
+  "./img/tab-1.png",
+  "./img/tab-2.png",
+  "./img/tab-3.png",
+  "./img/tab-4.png",
+  "./img/tab-5.png",
+  "./img/ch1.png",
+  "./img/ch2.png",
+  "./img/ch3.png",
+  "./img/ch4.png",
+  "./img/ch5.png",
+  "./img/ch6.png",
+  "./img/ch7.png",
+  "./img/ch8.png",
+  "./img/ch9.png",
+  "./img/inst1.png",
+  "./img/inst2.png",
+  "./img/inst3.png",
+  "./img/inst4.png",
+  "./img/inst5.png",
+  "./img/inst6.png",
+  "./img/flag-en.png",
+  "./img/flag-kk.png",
+  "./img/flag-ky.png",
+  "./img/flag-ru.png",
+  "./img/goodt-end.png",
+  "./img/goodt-login.png",
+  "./img/goodt-logo.jpg",
+  "./img/goodt-start.png",
+  "./img/goodt-store.jpg",
+  "./img/qr-appstore.png",
+  "./img/qr-googleplay.png",
+  "./img/qr-materials.png",
+  "./img/qr-pulse.png",
+  "./img/prep-appearance.jpg",
+  "./img/qr-server.png",
+  "./img/shema.png",
+  "./img/shkaf.jpg",
+  "./img/t1.jpg",
+  "./img/t2.jpg",
+  "./img/t3.jpg",
+  "./img/t4.jpg",
+  "./img/t5.jpg",
+  "./img/tsd.jpg",
+  "./img/ukritie.jpg",
+  "./img/vhod.jpg",
+  "./img/vhod2.jpg",
+  "./index.html",
+  "./manifest.webmanifest",
+  "./style.css"
 ];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
-self.addEventListener('fetch',e=>{
-  if(e.request.method!=='GET')return;
-  const u=new URL(e.request.url); if(u.origin!==location.origin)return;
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(ASSETS.map(u =>
+    fetch(u, { cache: 'reload' }).then(r => { if (!r.ok) throw 0; return c.put(u, r); })
+  ))).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  const u = new URL(e.request.url); if (u.origin !== location.origin) return;
   // config.js и страница — сначала сеть (чтобы быстро подхватить новый адрес таблицы), при офлайне — кэш
-  if(/\/(config\.js|index\.html)$/.test(u.pathname)){
-    e.respondWith(fetch(e.request).then(resp=>{if(resp&&resp.ok){const cp=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cp));}return resp;})
-      .catch(()=>caches.match(e.request,{ignoreSearch:true}).then(r=>r||caches.match('./index.html'))));
+  if (/\/(config\.js|index\.html)$/.test(u.pathname)) {
+    e.respondWith(fetch(e.request).then(resp => { if (resp && resp.ok) { const cp = resp.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); } return resp; })
+      .catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match('./index.html'))));
     return;
   }
-  e.respondWith(caches.match(e.request,{ignoreSearch:true}).then(r=>r||fetch(e.request).then(resp=>{
-    if(resp&&resp.ok){const cp=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cp));} return resp;
-  }).catch(()=>caches.match('./index.html'))));
+  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || fetch(e.request).then(resp => {
+    if (resp && resp.ok) { const cp = resp.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); } return resp;
+  }).catch(() => caches.match('./index.html'))));
 });
