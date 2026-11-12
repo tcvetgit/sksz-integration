@@ -2,7 +2,7 @@
    Обновление: поменяй CACHE (v87 → v88 …) при новой сборке — браузер ставит нового SW,
    на activate старые кэши удаляются. Ассеты качаются с cache:'reload', поэтому HTTP-кэш
    телефона не мешает: в новый кэш всегда попадает свежая копия с сервера. */
-const CACHE='szvers-v89';
+const CACHE='szvers-v91';
 const ASSETS=[
   "./",
   "./app.js",
@@ -37,6 +37,7 @@ const ASSETS=[
   "./img/inst4.png",
   "./img/inst5.png",
   "./img/inst6.png",
+  "./img/inst-optim.png",
   "./img/flag-en.png",
   "./img/flag-kk.png",
   "./img/flag-ky.png",

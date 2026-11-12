@@ -131,6 +131,7 @@
     backToWrong: '← К разбору ошибок', histEmpty: 'Пройди первый тест — результаты появятся здесь 📊',
     mixTitle: 'Смешанный тест', mixSub: '8 случайных вопросов',
     sparkEmpty: 'Пройди пару тестов — здесь появится график динамики 📈', sparkCap: 'Динамика последних попыток',
+    instComing: 'Инструкция в подготовке', instComingBody: 'Содержимое этого раздела появится здесь позже.',
     updateReady: 'Доступна новая версия приложения', updateBtn: 'Обновить'
   };
 
@@ -593,7 +594,8 @@ ${sparkline()}
   function viewDoc(id) {
     if (!IN.insts.find(x => x.id === id)) return go('#/inst');
     const tr = tinst(id);
-    shell(tr.t, `<article class="content">${tHtmlInst(id)}</article>
+    const html = tHtmlInst(id);
+    shell(tr.t, `<article class="content">${html || `<div class="box box-info"><div class="box-t">${T('instComing')}</div><p>${T('instComingBody')}</p></div>`}</article>
 <div class="chap-nav"><a class="btn sec" href="#/inst">${T('allInst')}</a></div>`, { tab: 'inst', back: '#/inst' });
   }
 
