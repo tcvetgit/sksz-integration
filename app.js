@@ -132,7 +132,12 @@
     mixTitle: 'Смешанный тест', mixSub: '8 случайных вопросов',
     sparkEmpty: 'Пройди пару тестов — здесь появится график динамики 📈', sparkCap: 'Динамика последних попыток',
     instComing: 'Инструкция в подготовке', instComingBody: 'Содержимое этого раздела появится здесь позже.',
-    updateReady: 'Доступна новая версия приложения', updateBtn: 'Обновить'
+    updateReady: 'Доступна новая версия приложения', updateBtn: 'Обновить',
+    updTitle: '🔄 Обновление', updHint: 'Приложение само проверяет обновления раз в сутки при запуске. Если что-то зависло и показывает устаревшие данные — обнови вручную или очисти кэш.',
+    updBtn: 'Проверить обновления', updClearBtn: 'Очистить кэш браузера',
+    updChecking: 'Проверяю обновления…', updLatest: 'Установлена последняя версия',
+    updFound: 'Найдено обновление — обновляю…', updNoNet: 'Не удалось проверить обновления — нет подключения к интернету',
+    clearCacheConfirm: 'Очистить кэш приложения? Прогресс обучения и результаты тестов сохранятся.'
   };
 
   // ---------- storage
@@ -515,6 +520,9 @@ ${sparkline()}
 <button class="btn ghost" data-act="reset">${T('reset')}</button><p class="small muted">${T('deviceId')} ${S.dev}</p></div>
 <div class="inst"><h3>${S.theme === 'dark' ? '🌙' : '☀️'} ${T('themeTitle')}</h3>
 <button class="btn ghost" data-act="theme">${S.theme === 'dark' ? T('themeLight') : T('themeDark')}</button></div>
+<div class="inst"><h3>${T('updTitle')}</h3>
+<p class="small muted">${T('updHint')}</p>
+<div class="btn-row"><button class="btn ghost" data-act="updcheck">${T('updBtn')}</button><button class="btn ghost" data-act="updclear">${T('updClearBtn')}</button></div></div>
 <div class="inst"><h3>${T('about')}</h3><p class="small">${T('aboutText')}</p>
 <p class="small muted">${T('bank', { q: Q.length, c: CH.length })}</p></div>`, { tab: 'more' });
   }
@@ -659,6 +667,8 @@ ${sparkline()}
     else if (act === 'resume') { if (restoreQuiz()) { go('#/quiz'); } else toast(T('resetDone')); }
     else if (act === 'install' && deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; }
     else if (act === 'theme') setTheme(S.theme === 'dark' ? 'light' : 'dark');
+    else if (act === 'updcheck') checkUpdates(true);
+    else if (act === 'updclear') { if (confirm(T('clearCacheConfirm'))) hardReset(); }
     else if (act === 'mistgo') { S.from = id; save(); }
     else if (act === 'backwr') { S.from = null; save(); }
     else if (act === 'lang') setLang(b.dataset.lang);
@@ -687,6 +697,59 @@ ${sparkline()}
   function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
   let deferredPrompt = null;
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; });
+
+  // ---------- обновления (сборка живёт на GitHub Pages)
+  // Раз в сутки при запуске: 1) браузерная проверка sw.js (reg.update — подхватит новый CACHE),
+  // 2) сверка маркера сборки V из index.html (BOOT-скрипт) с сохранённым в localStorage.
+  // Несовпадение = на сервере выложена новая сборка: чистим SW и кэши, перезагружаемся
+  // (тот же механизм, что у BOOT-скрипта в index.html).
+  const UPD_KEY = 'szvers.updAt', UPD_DAY = 24 * 60 * 60 * 1000;
+  function hardReset(newV) {
+    if (newV) { try { localStorage.setItem('szvers.build', newV); } catch (e) { } }
+    const p = [];
+    if (navigator.serviceWorker) p.push(navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))));
+    if (window.caches) p.push(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))));
+    return Promise.all(p).then(() => location.reload(), () => location.reload());
+  }
+  async function buildDiffers() {
+    if (location.protocol.indexOf('http') !== 0) return null;
+    try {
+      const r = await fetch('index.html?_=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw 0;
+      const m = /var V='([^']+)'/.exec(await r.text());
+      return m ? m[1] : ''; // V с сервера; '' — маркера нет; null — сеть недоступна
+    } catch (e) { return null; }
+  }
+  async function checkUpdates(manual) {
+    if (navigator.onLine === false) { if (manual) toast(T('updNoNet')); return; }
+    if (manual) toast(T('updChecking'));
+    let swNew = false;
+    try {
+      if (navigator.serviceWorker) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) { await reg.update(); swNew = !!reg.installing; }
+      }
+    } catch (e) { }
+    const v = await buildDiffers();
+    if (v === null) { if (manual) toast(T('updNoNet')); return; }
+    let stored = null;
+    try { stored = localStorage.getItem('szvers.build'); } catch (e) { }
+    if (stored && v && v !== stored) { // на сервере выложена новая сборка
+      if (manual) toast(T('updFound'));
+      hardReset(v);
+      return;
+    }
+    if (swNew) { if (manual) toast(T('updFound')); return; } // новый SW активируется — controllerchange перезагрузит
+    if (manual) toast(T('updLatest'));
+  }
+  // тихая проверка раз в сутки при запуске
+  try {
+    const last = +(localStorage.getItem(UPD_KEY) || 0);
+    if (Date.now() - last >= UPD_DAY && location.protocol.indexOf('http') === 0 && navigator.onLine !== false) {
+      localStorage.setItem(UPD_KEY, String(Date.now()));
+      checkUpdates(false);
+    }
+  } catch (e) { }
 
   if ('serviceWorker' in navigator && !window.SZVERS_SINGLE && location.protocol.startsWith('http')) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
